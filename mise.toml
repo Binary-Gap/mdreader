@@ -1,0 +1,215 @@
+[env]
+# DEVELOPMENT_TEAM for code signing, consumed by project.yml as ${APPLE_TEAM_ID}.
+# A `{{ env.APPLE_TEAM_ID }}` template can't inherit an externally-exported
+# APPLE_TEAM_ID: mise excludes the key being defined from its own `env` context,
+# so the self-reference always resolves empty and clobbers the value. Read the
+# override from a differently-named var (MDREADER_TEAM_ID) and fall back to the
+# Developer ID team so release archives export with a real teamID.
+APPLE_TEAM_ID = "{{ env.MDREADER_TEAM_ID | default(value='3MAW268EFW') }}"
+
+# NOTE: setting `includes` REPLACES mise's default file-task dirs
+[task_config]
+includes = ["fastlane/mise_tasks.toml"]
+
+[tasks."xcode_open"]
+quiet = true
+run = "open MDReader.xcodeproj"
+
+[tasks."xcode_kill"]
+quiet = true
+run = '''
+pkill -f "Xcode.*\.app/Contents/MacOS/Xcode$" || true
+pkill -f MDReader || true
+'''
+
+[tasks."xcode_build"]
+run = "xcodebuild -scheme MDReader -configuration Debug build"
+
+# Run the XCUITest suite (MDReaderUITests) on the local macOS destination.
+# Pass test identifiers to run a subset (each becomes an -only-testing selector):
+#   mise run test MDReaderUITests/MDReaderUITests/testSidebarToggle
+#   mise run test MDReaderUITests            # whole target
+# No args = the full suite.
+[tasks."test"]
+usage = 'arg "<tests>" var=#true help="test identifiers -> -only-testing selectors"'
+run = '''
+only=""
+for t in $usage_tests; do only="$only -only-testing:$t"; done
+xcodebuild test -scheme MDReader -configuration Debug -destination 'platform=macOS' $only
+'''
+
+# Agent variant: compact verdict, full log to the cache dir. Same optional
+# test-selector args as `test` (each arg -> one -only-testing selector).
+[tasks."ai:test"]
+quiet = true
+usage = 'arg "<tests>" var=#true help="test identifiers -> -only-testing selectors"'
+run = '''
+only=""
+for t in $usage_tests; do only="$only -only-testing:$t"; done
+~/.config/mise/ai-logged.sh --label test \
+  --diagnostic-pattern "error:|failed|Failing tests:|\bXCTAssert" \
+  --fail-pattern '\*\* TEST FAILED \*\*' \
+  -- xcodebuild test -scheme MDReader -configuration Debug -destination 'platform=macOS' $only
+'''
+
+[tasks."ai:xcode_build"]
+quiet = true
+run = '''
+~/.config/mise/ai-logged.sh --label xcode_build \
+  --diagnostic-pattern "error:|warning:" \
+  --warn-pattern "warning:" \
+  --fail-pattern '\*\* BUILD FAILED \*\*' \
+  -- xcodebuild -scheme MDReader -configuration Debug build
+'''
+
+# Open the built debug app against a markdown file (defaults to the test fixture).
+# Usage: mise run run [path/to/file.md]
+[tasks.run]
+depends = ["xcode_build"]
+run = '''
+file="${1:-test/sample.md}"
+abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+app_dir="$(xcodebuild -scheme MDReader -configuration Debug -showBuildSettings \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR =/{print $2; exit}')"
+# SIGTERM the old instance and wait for it to fully exit. open returns -600
+# (procNotFound) if it fires while LaunchServices is mid-unregister of the
+# still-dying bundle, so block until no MDReader process remains.
+pkill -f MDReader || true
+for _ in $(seq 1 50); do
+  pgrep -f "MDReader.app/Contents/MacOS/MDReader" >/dev/null || break
+  sleep 0.1
+done
+open "$app_dir/MDReader.app" --args "$abs"
+'''
+
+[tasks."ai:run"]
+quiet = true
+depends = ["ai:xcode_build"]
+run = '''
+file="${1:-test/sample.md}"
+abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+app_dir="$(xcodebuild -scheme MDReader -configuration Debug -showBuildSettings \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR =/{print $2; exit}')"
+pkill -f MDReader || true
+for _ in $(seq 1 50); do
+  pgrep -f "MDReader.app/Contents/MacOS/MDReader" >/dev/null || break
+  sleep 0.1
+done
+open "$app_dir/MDReader.app" --args "$abs"
+echo "=== ai:run: launched $abs ==="
+'''
+
+# Build + launch bare (NO file arg) to exercise session restore: reopens the
+# windows saved on the last clean quit. Quit the app with Cmd+Q (not pkill) so
+# applicationWillTerminate writes ~/.config/mdreader/session.json first.
+# Usage: mise run restore
+[tasks.restore]
+depends = ["xcode_build"]
+run = '''
+app_dir="$(xcodebuild -scheme MDReader -configuration Debug -showBuildSettings \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR =/{print $2; exit}')"
+pkill -f MDReader || true
+for _ in $(seq 1 50); do
+  pgrep -f "MDReader.app/Contents/MacOS/MDReader" >/dev/null || break
+  sleep 0.1
+done
+open -n "$app_dir/MDReader.app"
+'''
+
+[tasks."ai:restore"]
+quiet = true
+depends = ["ai:xcode_build"]
+run = '''
+app_dir="$(xcodebuild -scheme MDReader -configuration Debug -showBuildSettings \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR =/{print $2; exit}')"
+pkill -f MDReader || true
+for _ in $(seq 1 50); do
+  pgrep -f "MDReader.app/Contents/MacOS/MDReader" >/dev/null || break
+  sleep 0.1
+done
+open -n "$app_dir/MDReader.app"
+echo "=== ai:restore: launched bare (session restore) ==="
+'''
+
+# Build, launch backgrounded (force-activated so WKWebView renders
+# immediately) against a file, and screenshot the result.
+# Usage: mise run dev:screenshot [path/to/file.md]
+[tasks."dev:screenshot"]
+depends = ["xcode_build"]
+run = '''
+file="${1:-test/sample.md}"
+abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+app_dir="$(xcodebuild -scheme MDReader -configuration Debug -showBuildSettings \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR =/{print $2; exit}')"
+pkill -x MDReader || true
+for _ in $(seq 1 50); do
+  pgrep -f "MDReader.app/Contents/MacOS/MDReader" >/dev/null || break
+  sleep 0.1
+done
+MDREADER_FORCE_ACTIVATE=1 open -g "$app_dir/MDReader.app" --args "$abs"
+sleep 3
+hs -c "ai_helpers.screenshot_app('MDReader')"
+'''
+
+[tasks."ai:dev:screenshot"]
+quiet = true
+depends = ["ai:xcode_build"]
+run = '''
+file="${1:-test/sample.md}"
+abs="$(cd "$(dirname "$file")" && pwd)/$(basename "$file")"
+app_dir="$(xcodebuild -scheme MDReader -configuration Debug -showBuildSettings \
+  | awk -F' = ' '/ BUILT_PRODUCTS_DIR =/{print $2; exit}')"
+pkill -x MDReader || true
+for _ in $(seq 1 50); do
+  pgrep -f "MDReader.app/Contents/MacOS/MDReader" >/dev/null || break
+  sleep 0.1
+done
+MDREADER_FORCE_ACTIVATE=1 open -g "$app_dir/MDReader.app" --args "$abs"
+sleep 3
+hs -c "ai_helpers.screenshot_app('MDReader')"
+'''
+
+[tasks.xcodegen]
+run = '''
+XCODE_IS_OPEN=false
+if pgrep -fq "Xcode.*\.app/Contents/MacOS/Xcode$"; then
+  XCODE_IS_OPEN=true
+  mise run xcode_kill
+fi
+
+rm -rf MDReader.xcodeproj
+xcodegen generate
+
+if [ "$XCODE_IS_OPEN" = true ]; then
+  echo "Reopening Xcode"
+  mise run xcode_open
+fi
+'''
+
+[tasks."ai:xcodegen"]
+quiet = true
+run = '''
+~/.config/mise/ai-logged.sh --label xcodegen \
+  --diagnostic-pattern "error|Error" \
+  -- bash -c '
+XCODE_IS_OPEN=false
+if pgrep -fq "Xcode.*\.app/Contents/MacOS/Xcode$"; then
+  XCODE_IS_OPEN=true
+  mise run xcode_kill
+fi
+
+rm -rf MDReader.xcodeproj
+xcodegen generate
+
+if [ "$XCODE_IS_OPEN" = true ]; then
+  echo "Reopening Xcode"
+  mise run xcode_open
+fi
+'
+'''
+
+# Regenerate the VS Code extension's preview theme + mermaid config from the app's
+# `--dump-css` output, so the extension can never drift from the app's theme JSON.
+# Usage: mise run vscode:css   (MDREADER_BIN=... to pick a specific build)
+[tasks."vscode:css"]
+run = "bun vscode-extension/scripts/build-theme-css.ts"

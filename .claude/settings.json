@@ -1,0 +1,17 @@
+{
+  "enabledPlugins": {
+    "frontend-design@claude-plugins-official": true
+  },
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise run ai:run"
+          }
+        ]
+      }
+    ]
+  }
+}

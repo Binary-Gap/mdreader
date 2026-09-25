@@ -1,0 +1,90 @@
+/* Bridges MDReader's document model onto VS Code's markdown preview DOM. The generated
+   mdreader-theme.css is the app's stylesheet verbatim; this file only covers what the
+   two DOMs disagree on, plus the preview-only affordances (scroll sync, CSP warning)
+   that the app has no equivalent for. */
+
+/* The app wraps content in `.content`; the preview renders straight into <body>, so the
+   measure and padding move onto <body>. Height is auto so the preview scrolls normally
+   instead of being pinned to the viewport like the app's window-filling webview. */
+body {
+  height: auto;
+  min-height: 100%;
+  padding: var(--content-padding);
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  word-wrap: break-word;
+}
+
+/* The preview's own reset is gone (`* { margin: 0 }` from the app's rules), so the bits
+   of preview chrome that relied on default margins get their spacing back. */
+body > *:last-child {
+  margin-bottom: 0;
+}
+
+/* Scroll sync: the preview marks the line matching the editor cursor. Paint it as the
+   same hanging amber tick h2 uses, rather than VS Code's editor-cursor color. */
+body.showEditorSelection .code-active-line:before {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -0.85em;
+  width: 3px;
+  height: 1.2em;
+  border-radius: 2px;
+  background: var(--accent-primary);
+}
+body.showEditorSelection .code-line {
+  position: relative;
+}
+
+/* Find-in-preview and selection, tinted to the palette. */
+::selection {
+  background: var(--accent-primary-soft);
+}
+mark,
+.highlight {
+  background: var(--accent-primary-soft);
+  color: var(--emphasis);
+}
+
+/* Keyboard focus stays visible with the reset in place. */
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 1px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+/* Preview-only banner (blocked local content). Readable on the warm background. */
+#code-csp-warning {
+  position: fixed;
+  top: 0;
+  right: 0;
+  color: var(--background);
+  background: var(--accent-primary);
+  padding: 0.4em 0.8em;
+  font-size: 0.85em;
+  border-radius: 0 0 0 8px;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* Mermaid blocks render as inline SVG, so they must not keep the code-block frame. */
+pre.mermaid {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: center;
+}
+pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+/* A diagram mermaid could not parse keeps its source visible, framed like code again. */
+pre.mermaid.mermaid-error {
+  background: var(--code-block-background);
+  border: 1px solid var(--border-faint);
+  padding: 16px 18px;
+  text-align: left;
+}

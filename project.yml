@@ -1,0 +1,93 @@
+name: MDReader
+options:
+  bundleIdPrefix: com.binarygap
+  deploymentTarget:
+    macOS: "26.0"
+  usesTabs: false
+
+settings:
+  base:
+    DEVELOPMENT_TEAM: ${APPLE_TEAM_ID}
+    CODE_SIGN_STYLE: Manual
+    PRODUCT_BUNDLE_IDENTIFIER: com.binarygap.mdreader
+    ENABLE_HARDENED_RUNTIME: true
+    DEAD_CODE_STRIPPING: true
+    SWIFT_VERSION: "5.0"
+  configs:
+    debug:
+      CODE_SIGN_IDENTITY: "Apple Development"
+    release:
+      CODE_SIGN_IDENTITY: "Developer ID Application"
+
+targets:
+  MDReader:
+    type: application
+    platform: macOS
+    info:
+      path: Sources/MDReader/Info.plist
+      properties:
+        CFBundleShortVersionString: "0.0.1"
+        CFBundleVersion: "1"
+        LSMinimumSystemVersion: "26.0"
+        CFBundleIconFile: AppIcon
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Markdown Document
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - net.daringfireball.markdown
+              - public.plain-text
+            CFBundleTypeExtensions:
+              - md
+              - markdown
+    sources:
+      - path: Sources/MDReader
+        excludes:
+          - Resources
+      - path: Sources/MDReader/Resources
+        buildPhase: resources
+
+  MDReaderUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources:
+      - path: Tests/MDReaderUITests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.binarygap.mdreader.uitests
+        TEST_TARGET_NAME: MDReader
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MDReader
+
+  MDReaderUnitTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests/MDReaderUnitTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.binarygap.mdreader.unittests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/MDReader.app/Contents/MacOS/MDReader"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: YES
+    dependencies:
+      - target: MDReader
+
+schemes:
+  MDReader:
+    build:
+      targets:
+        MDReader: all
+        MDReaderUITests: [test]
+        MDReaderUnitTests: [test]
+    test:
+      # Export the repo root so the UI test can launch the app against
+      # test/sample.md regardless of the test runner's working directory.
+      environmentVariables:
+        MDREADER_SRCROOT: "$(SRCROOT)"
+      targets:
+        - MDReaderUITests
+        - MDReaderUnitTests
+    run:
+      config: Debug

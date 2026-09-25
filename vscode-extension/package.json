@@ -1,0 +1,55 @@
+{
+  "name": "mdreader-markdown-theme",
+  "displayName": "MDReader Markdown Theme",
+  "description": "Renders VS Code's built-in markdown preview with MDReader's reading-lamp theme, syntax colors and mermaid styling.",
+  "version": "0.1.0",
+  "publisher": "binarygap",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Themes",
+    "Programming Languages"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "mdreader.togglePreviewInPlace",
+        "title": "Toggle Markdown Preview In Place",
+        "category": "MDReader",
+        "enablement": "editorLangId == markdown || activeWebviewPanelId =~ /markdown/ || activeCustomEditorId =~ /markdown/"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mdreader.togglePreviewInPlace",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorLangId == markdown && editorTextFocus"
+      },
+      {
+        "command": "mdreader.togglePreviewInPlace",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "activeWebviewPanelId =~ /markdown/ || activeCustomEditorId =~ /markdown/"
+      }
+    ],
+    "markdown.previewStyles": [
+      "./media/mdreader-theme.css",
+      "./media/mdreader-vscode-preview.css"
+    ],
+    "markdown.previewScripts": [
+      "./media/mdreader-mermaid-config.js",
+      "./media/mdreader-mermaid-preview.js"
+    ]
+  },
+  "main": "./extension.js",
+  "activationEvents": []
+}

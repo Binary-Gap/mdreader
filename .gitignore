@@ -1,0 +1,14 @@
+build/
+DerivedData/
+*.xcodeproj/
+mise.local.toml
+fnox.toml
+fastlane/
+*.p8
+.DS_Store
+
+# App-icon generation scratch (master PNG / iconset); the built .icns lives in Resources/
+build-assets/
+
+# Internal build plans, local only
+docs-native/
