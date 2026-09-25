@@ -36,6 +36,8 @@ Everything lives in `~/.config/mdreader/`:
 markdown preview. Its CSS is generated from the app's own theme
 (`MDReader --dump-css`), so the two never drift apart.
 
+![VS Code preview with the MDReader theme](docs/screenshots/vscode.png)
+
 ## Build
 
 Requires macOS 26, Xcode, [xcodegen](https://github.com/yonaskolb/XcodeGen) and
