@@ -148,7 +148,7 @@ for _ in $(seq 1 50); do
 done
 MDREADER_FORCE_ACTIVATE=1 open -g "$app_dir/MDReader.app" --args "$abs"
 sleep 3
-hs -c "ai_helpers.screenshot_app('MDReader')"
+hs -c "ai_helpers.screenshot_app('MDReader')" </dev/null
 '''
 
 [tasks."ai:dev:screenshot"]
@@ -166,7 +166,7 @@ for _ in $(seq 1 50); do
 done
 MDREADER_FORCE_ACTIVATE=1 open -g "$app_dir/MDReader.app" --args "$abs"
 sleep 3
-hs -c "ai_helpers.screenshot_app('MDReader')"
+hs -c "ai_helpers.screenshot_app('MDReader')" </dev/null
 '''
 
 [tasks.xcodegen]
