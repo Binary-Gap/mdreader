@@ -9,6 +9,14 @@ WKWebView in a plain `NSWindow`, no Electron.
 | --- | --- |
 | ![Light theme](docs/screenshots/light.png) | ![Mermaid diagrams](docs/screenshots/diagrams.png) |
 
+## Install
+
+```sh
+brew install --cask binary-gap/tap/mdreader
+```
+
+Or download `MDReader.dmg` from the latest GitHub release.
+
 ## Features
 
 - GitHub-flavored markdown: tables, task lists, strikethrough, autolinks

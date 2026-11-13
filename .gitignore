@@ -12,3 +12,5 @@ build-assets/
 
 # Internal build plans, local only
 docs-native/
+
+CLAUDE.local.md

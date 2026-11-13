@@ -60,21 +60,12 @@ Native macOS markdown reader: a WKWebView in a `NSWindow`, vim-style key binding
 
 ## Build (dev)
 - `mise run ai:xcodegen` - regenerate `MDReader.xcodeproj` from `project.yml` (run after editing project.yml OR adding any new source/resource file, since the project globs). The `mise.toml [env] APPLE_TEAM_ID` resolves to the Developer ID team (`3MAW268EFW`) even in a non-interactive shell, so xcodegen bakes a real `DEVELOPMENT_TEAM` into the pbxproj and the notarized-build export gets a non-empty `teamID`. Verify: `grep -m1 DEVELOPMENT_TEAM MDReader.xcodeproj/project.pbxproj` shows `3MAW268EFW`, not `""`.
-- mise.toml env gotcha: `APPLE_TEAM_ID` is templated from `env.MDREADER_TEAM_ID` (default `3MAW268EFW`), NOT from `env.APPLE_TEAM_ID`. A self-named template (`APPLE_TEAM_ID = {{ env.APPLE_TEAM_ID | default(...) }}`) can't inherit an externally-exported `APPLE_TEAM_ID`: mise excludes the key being defined from its own `env` context, so the self-reference always resolves empty and clobbers it -> `teamID:""` in the gym export options -> `build_mac_app` dies with code 9 ("Error packaging up the application", real cause in `~/Library/Logs/gym/MDReader-MDReader.log` + the `xcdistributionlogs/IDEDistribution.standard.log`). To override the team, export `MDREADER_TEAM_ID`, not `APPLE_TEAM_ID`.
 - `mise run ai:xcode_build` - debug build via xcodebuild. Output under DerivedData.
 - `mise run ai:run [path/to/file.md]` - build (summarized) + launch the debug app against a file (kills any running instance first). After making code changes, this leaves the build updated and running; tell the user so. A `Stop` hook in `.claude/settings.json` runs it automatically at the end of every turn, so you don't need to invoke it manually.
 - `mise run ai:dev:screenshot [path/to/file.md]` - build, launch backgrounded against a file, and screenshot the result.
 
-## Notarized build + install to /Applications
-- Secrets (`MATCH_PASSWORD`, `MATCH_GIT_URL`, App Store Connect key ids) come from `fnox.toml` (age-encrypted), auto-injected on `cd`. Run the lane under `fnox run` if env isn't already injected.
-- `APPLE_TEAM_ID` (Developer ID team `3MAW268EFW`) is templated in `mise.toml [env]` from `{{ env.MDREADER_TEAM_ID | default(value='3MAW268EFW') }}`, so a plain `fnox run -- mise run release:notarized-build` exports a non-empty `teamID` to gym (empty teamID breaks exportArchive -> `build_mac_app` code 9). Don't repoint that template at `env.APPLE_TEAM_ID` (self-named -> always empty) or a bare `""` literal.
-- Build: `fnox run -- mise run release:notarized-build`. This wipes `build/`, does the throwaway-keychain dance, signs with `Developer ID Application: Binary Gap LLC (3MAW268EFW)`, notarizes app + dmg via notarytool, staples. Produces `build/MDReader.app`, `.zip`, `.dmg`. Takes a few min (real Apple notary call). Keychain is restored via the lane's `ensure` block even on failure.
-- Verify before install: `xcrun stapler validate build/MDReader.app` and `spctl -a -vvv -t exec build/MDReader.app` (expect `source=Notarized Developer ID`).
-- Install: `mise run release:install` (pkill running MDReader, `rm -rf` the old /Applications copy, `ditto` the build/ artifact in, re-validate stapler+spctl). It runs automatically as a `depends_post` of `release:notarized-build`, so a fresh notarized build refreshes the installed app on its own; also runnable standalone against an existing build/ artifact.
-- The Release archive bundles the current working tree, so an uncommitted change ships in the notarized app. Commit before `release:publish`.
-
-## Publish (GitHub Release)
-- `mise run release:publish` pushes branch + tag and creates the release from `build/`. Refuses unless tag `vX.Y.Z` exists and points at HEAD AND matches the built `CFBundleShortVersionString`. Run the notarized build first.
+## Release
+- Release tooling (fastlane, notarization, publishing, Homebrew cask) is maintainer-only and lives in the gitignored `fastlane/` folder; machine notes in the gitignored `CLAUDE.local.md`.
 
 ## Conventions
 - Theme is the single source of styling; never hardcode colors in CSS strings, add a token. New token = field on `Theme` + default in `.dark` + `add(...)` in `css()` + optional field on `ThemeOverride` + line in `apply(to:)`.
